@@ -4,16 +4,86 @@ import (
   "github.com/vadimpilyugin/debug_print_go"
   "net"
   "os"
+  "encoding/json"
+  "fmt"
   "io"
 )
 
 const (
-  MTU = 1500
+  MTU = 1460
 )
+
+type FilePart struct {
+  Filename string
+  PartNo int64
+  NParts int64
+  FilePart []byte
+}
 
 func usage() {
   println("Usage: client [FILE] [POST_URL]")
   os.Exit(1)
+}
+
+func predictLen(fileToSend string, partLen int) int {
+  var encodedLen float64 = 4.0 / 3.0 * float64(partLen)
+  return int(encodedLen) + len(fileToSend) + 51
+}
+
+func sendFile(fileToSend string, partLen int, conn net.Conn) {
+  file, err := os.Open(fileToSend)
+  if err != nil {
+    printer.Fatal(err)
+  }
+  defer file.Close()
+
+  fp := make([]byte, partLen)
+  done := false
+  var partNo int64 = 0
+  stats, err := file.Stat()
+  if err != nil {
+    printer.Fatal(err)
+  }
+  nParts := stats.Size() / int64(partLen)
+  if stats.Size() % int64(partLen) > 0 {
+    nParts += 1
+  }
+  for {
+    n, err := file.Read(fp)
+    if err == io.EOF {
+      done = true
+      if n == 0 {
+        break
+      }
+    } else if err != nil {
+      printer.Fatal(err)
+    }
+
+    buf, err := json.Marshal(FilePart{
+      Filename: fileToSend,
+      PartNo: partNo,
+      NParts: nParts,
+      FilePart: fp[:n],
+    })
+    if err != nil {
+      printer.Fatal(err)
+    }
+
+    _, err = conn.Write(buf)
+    if err != nil {
+      printer.Error(err, "conn.Write")
+    }
+    printer.Debug(
+      fmt.Sprintf("predicted payload len=%d, payload len=%d", predictLen(fileToSend, partLen), len(buf)), 
+      fmt.Sprintf("%d / %d", partNo, nParts),
+    )
+
+    if done {
+      break
+    }
+
+    partNo++
+  }
 }
 
 func main() {
@@ -33,28 +103,10 @@ func main() {
   }
   defer conn.Close()
 
-  buf := make([]byte, MTU)
-  file, err := os.Open(fileToSend)
-  if err != nil {
-    printer.Fatal(err)
+  partLen := 1050
+  pred := predictLen(fileToSend, partLen)
+  if pred > MTU {
+    printer.Note("May be outside of MTU limit!", fmt.Sprintf("Packet len=%d", pred))
   }
-  defer file.Close()
-
-  //simple write
-  n := 0
-  for {
-    n1, err := file.Read(buf)
-    if n1 > 0 {
-      n = n1
-    }
-    if err == io.EOF {
-      break
-    }
-  }
-  buf = buf[:n]
-  // conn.Write([]byte("Hello from client"))
-  _, err = conn.Write(buf)
-  if err != nil {
-    printer.Fatal(err, "conn.Write")
-  }
+  sendFile(fileToSend, partLen, conn)
 }
