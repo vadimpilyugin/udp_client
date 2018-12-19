@@ -11,6 +11,7 @@ import (
   "strconv"
   "encoding/binary"
   "errors"
+  "path"
 )
 
 const (
@@ -91,7 +92,7 @@ func sendFile(fileToSend string, partLen int, conn net.Conn) {
   done := false
   for _, partNo := range partsSeq {
     buf, err := FilePart{
-      Filename: fileToSend,
+      Filename: path.Base(fileToSend),
       PartNo: partNo,
       NParts: nParts,
       FilePart: content[partNo * int64(partLen) : (partNo + 1) * int64(partLen)],
