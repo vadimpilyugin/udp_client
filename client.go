@@ -41,12 +41,17 @@ func main() {
   defer file.Close()
 
   //simple write
+  n := 0
   for {
-    _, err := file.Read(buf)
+    n1, err := file.Read(buf)
+    if n1 > 0 {
+      n = n1
+    }
     if err == io.EOF {
       break
     }
   }
+  buf = buf[:n]
   // conn.Write([]byte("Hello from client"))
   _, err = conn.Write(buf)
   if err != nil {
