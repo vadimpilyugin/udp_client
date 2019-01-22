@@ -29,6 +29,7 @@ const (
   DO_RETRANSMIT = "Do another retransmission"
   FILE_RECEIVED = "File received"
   STATS = "Stats?"
+  TELL_TIME = "Time?"
   LF = '\n'
 )
 
@@ -173,9 +174,27 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
   }
   defer results.Close()
 
+  t1 := time.Now()
+  sendMsg(c, TELL_TIME)
+  msg := <-received
+  t3 := time.Now()
 
-  mtus := []int{100, 200, 400, 800, 1300, 1600, 3200, 6400, 12800, 25600, 51200}
+  t2 := &time.Time{}
+  t2.UnmarshalText([]byte(msg))
+
+  printer.Debug(t1, "--- t1")
+  printer.Debug(t2, "--- t2")
+  printer.Debug(t3, "--- t3")
+
+  t2_local := t1.Add(t3.Sub(t1) / 2)
+  delta := t2_local.Sub(*t2)
+
+  printer.Debug(t2_local, "--- t2_local")
+  printer.Debug(delta, "--- delta")
+
+  mtus := []int{800, 1400, 1600, 3200, 6400, 12800, 25600, 51200, 63000}
   for _, partLen := range mtus {
+    startTime := time.Now()
     retrCount := 0
     sendMsg(c, READY)
     for {
@@ -186,17 +205,27 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
       } else if msg == FILE_RECEIVED {
         sendMsg(c, STATS)
         stats := <- received
-        printer.Debug(stats, "Stats")
         ar := strings.Split(stats, ",")
+
+        timeFinished := &time.Time{}
+        timeFinished.UnmarshalText([]byte(ar[2]))
+        localTimeFinished := timeFinished.Add(delta)
+        timeTaken := localTimeFinished.Sub(startTime).Seconds()
+
+        fileSize, err := strconv.Atoi(ar[1])
+        if err != nil {
+          printer.Fatal(err)
+        }
+        speed := float64(fileSize * 8) / 1000 / timeTaken
         
         printer.Note(ar[0],"--- file sent")
-        printer.Note(retrCount,"--- retransmission count")
-        printer.Note(ar[1], "--- size (bytes)")
-        printer.Note(ar[2], "--- time taken (s)")
-        printer.Note(ar[3], "--- mean speed (kbps)")
+        printer.Note(fileSize, "--- size (bytes)")
+        printer.Note(retrCount, "--- retransmission count")
+        printer.Note(timeTaken, "--- time taken (s)")
+        printer.Note(speed, "--- mean speed (kbps)")
 
-        results.Write([]byte(fmt.Sprintf("mtu=%d size=%s time=%s speed=%s retries=%d\n", 
-                  partLen, ar[1], ar[2], ar[3], retrCount)))
+        results.Write([]byte(fmt.Sprintf("mtu=%d size=%s time=%f speed=%f retries=%d\n", 
+                  partLen, fileSize, timeTaken, speed, retrCount)))
         results.Sync()
 
         break
@@ -208,18 +237,17 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
 }
 
 func usage() {
-  println("Usage: client [FILE] [PART_LEN] [POST_URL]")
+  println("Usage: client [FILE] [POST_URL]")
   os.Exit(1)
 }
 
 func main() {
-  if len(os.Args) < 4 {
+  if len(os.Args) < 3 {
     usage()
   }
 
   fileToSend := os.Args[1]
-  // partLen,_ := strconv.Atoi(os.Args[2])
-  serverAddr := os.Args[3]
+  serverAddr := os.Args[2]
 
   printer.Debug("Client started")
 
