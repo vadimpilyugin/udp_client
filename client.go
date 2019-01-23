@@ -201,13 +201,13 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
           retrCount++
         } else if msg == FILE_RECEIVED {
           timeTaken := time.Now().Sub(startTime).Seconds()
-          speed := float64(fileSize * 8) / 1000 / timeTaken
+          speed := float64(fileSize) / 1024 / timeTaken
           
           printer.Note(fileToSend,"--- file sent")
           printer.Note(fileSize, "--- size (bytes)")
           printer.Note(retrCount, "--- retransmission count")
           printer.Note(timeTaken, "--- time taken (s)")
-          printer.Note(speed, "--- mean speed (kbps)")
+          printer.Note(speed, "--- mean speed (KB/s)")
 
           results.Write([]byte(fmt.Sprintf("mtu=%d size=%d time=%f speed=%f retries=%d\n", 
                     partLen, fileSize, timeTaken, speed, retrCount)))
