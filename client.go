@@ -30,6 +30,7 @@ const (
   STATS = "Stats?"
   TELL_TIME = "Time?"
   LF = '\n'
+  ALL_LENGTHS = -1
 )
 
 const (
@@ -135,11 +136,11 @@ func readMsg(c net.Conn) []byte {
   buffer := make([]byte, SMBUF)
   n, err := c.Read(buffer)
   if err != nil && err != io.EOF {
-    printer.Fatal(err)
+    printer.Fatal(err, "Network error")
   } else if err == io.EOF {
     printer.Fatal(err, "Client exited")
   }
-  printer.Debug(buffer[:n-1], "--- server")
+  printer.Debug(string(buffer[:n-1]), "--- server")
   return buffer[:n]
 }
 
@@ -166,7 +167,7 @@ func readCommand(c net.Conn, received chan string) {
   }
 }
 
-func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend string) {
+func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend string, packetLen int) {
   results, err := os.OpenFile("results_"+fileToSend+".txt", os.O_WRONLY|os.O_CREATE, 0755)
   if err != nil {
     printer.Fatal(err)
@@ -183,6 +184,9 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
   for i := 0; i < 10; i++ {
     printer.Debug("--------------- New cycle! ---------------", i+1)
     for _, partLen := range mtus {
+      if packetLen != ALL_LENGTHS && partLen != packetLen {
+        continue
+      }
       retrCount := 0
       var startTime time.Time
 
@@ -205,7 +209,7 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
           printer.Note(timeTaken, "--- time taken (s)")
           printer.Note(speed, "--- mean speed (kbps)")
 
-          results.Write([]byte(fmt.Sprintf("mtu=%d size=%s time=%f speed=%f retries=%d\n", 
+          results.Write([]byte(fmt.Sprintf("mtu=%d size=%d time=%f speed=%f retries=%d\n", 
                     partLen, fileSize, timeTaken, speed, retrCount)))
           results.Sync()
 
@@ -217,17 +221,21 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
 }
 
 func usage() {
-  println("Usage: client [FILE] [POST_URL]")
+  println("Usage: client [FILE] [POST_URL] [PACKET_LEN]")
   os.Exit(1)
 }
 
 func main() {
-  if len(os.Args) < 3 {
+  if len(os.Args) < 4 {
     usage()
   }
 
   fileToSend := os.Args[1]
   serverAddr := os.Args[2]
+  packetLen, err := strconv.Atoi(os.Args[3])
+  if err != nil {
+    printer.Fatal(err)
+  }
 
   printer.Debug("Client started")
 
@@ -250,5 +258,5 @@ func main() {
   received := make(chan string)
   go readCommand(c, received)
 
-  startTesting(pc, c, received, fileToSend)
+  startTesting(pc, c, received, fileToSend, packetLen)
 }
