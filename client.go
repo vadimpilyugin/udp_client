@@ -34,8 +34,8 @@ const (
 )
 
 const (
-  serverPortTcp = "8080"
-  serverPortUdp = "8687"
+  serverPortTcp = "18080"
+  serverPortUdp = "18687"
 )
 
 type FilePart struct {
@@ -259,4 +259,5 @@ func main() {
   go readCommand(c, received)
 
   startTesting(pc, c, received, fileToSend, packetLen)
+
 }
