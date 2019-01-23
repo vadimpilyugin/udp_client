@@ -168,7 +168,7 @@ func readCommand(c net.Conn, received chan string) {
 }
 
 func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend string, packetLen int) {
-  results, err := os.OpenFile("results_"+fileToSend+".txt", os.O_WRONLY|os.O_CREATE, 0755)
+  results, err := os.OpenFile("results_"+fileToSend+".txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
   if err != nil {
     printer.Fatal(err)
   }
