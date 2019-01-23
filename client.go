@@ -74,7 +74,7 @@ func randomPartsSeq(nParts int64) []int64 {
   return ar
 }
 
-func sendFile(fileToSend string, partLen int, conn net.Conn) {
+func sendFile(fileToSend string, partLen int, conn net.Conn, i int) {
   file, err := os.Open(fileToSend)
   if err != nil {
     printer.Fatal(err)
@@ -86,7 +86,7 @@ func sendFile(fileToSend string, partLen int, conn net.Conn) {
     printer.Fatal(err)
   }
 
-  fn := path.Base(fileToSend) + "_" + strconv.Itoa(partLen)
+  fn := path.Base(fileToSend) + "_" + strconv.Itoa(partLen) + "_" + strconv.Itoa(i) 
 
   fileSize := int64(len(content))
   nParts := fileSize / int64(partLen)
@@ -197,7 +197,7 @@ func startTesting(pc net.Conn, c net.Conn, received chan string, fileToSend stri
           if msg == READY {
             startTime = time.Now()
           }
-          sendFile(fileToSend, partLen, pc)
+          sendFile(fileToSend, partLen, pc, i)
           retrCount++
         } else if msg == FILE_RECEIVED {
           timeTaken := time.Now().Sub(startTime).Seconds()
