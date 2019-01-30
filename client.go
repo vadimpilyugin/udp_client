@@ -180,7 +180,7 @@ func readCommand(c net.Conn, received chan string) {
 func startTesting(pc net.Conn, c net.Conn, received chan string, 
   fileToSend string, packetLen int, useTCP bool) {
 
-  results, err := os.OpenFile("results_"+fileToSend+".txt", os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0644)
+  results, err := os.OpenFile("results.txt", os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
   if err != nil {
     printer.Fatal(err)
   }
@@ -194,9 +194,6 @@ func startTesting(pc net.Conn, c net.Conn, received chan string,
 
   mtus := []int{800, 1400, 1600, 3200, 6400, 12800, 25600, 51200, 63000}
   for i := 0; i < 10; i++ {
-    if useTCP && i > 0 {
-      continue
-    }
     printer.Debug("--------------- New cycle! ---------------", i+1)
     for _, partLen := range mtus {
       if packetLen != ALL_LENGTHS && partLen != packetLen {
